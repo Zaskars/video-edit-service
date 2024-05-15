@@ -17,13 +17,25 @@ for directory in [DOWNLOADS_DIR, OUTPUT_DIR]:
 
 
 @app.task(bind=True)
-def process_video_task(self, video_file: str) -> dict:
+def process_video_task(self, video_file: str, command: str) -> dict:
     self.update_state(state='PROGRESS', meta={'status': 'Processing video...'})
     try:
         unique_filename = f'{uuid.uuid4()}.mp4'
         output_file = os.path.join(OUTPUT_DIR, unique_filename)
-        cmd = f'ffmpeg -y -i "{video_file}" "{output_file}"'
+
+        if command == 'convert':
+            cmd = f'ffmpeg -y -i "{video_file}" "{output_file}"'
+        elif command == 'create_clip':
+            cmd = f'ffmpeg -y -i "{video_file}" -ss 00:00:00 -to 00:00:05 -c copy "{output_file}"'
+        elif command == 'compress':
+            cmd = f'ffmpeg -y -i "{video_file}" -vcodec libx264 -crf 28 "{output_file}"'
+        elif command == 'resize':
+            cmd = f'ffmpeg -y -i "{video_file}" -vf scale=1280:720 "{output_file}"'
+        else:
+            raise ValueError('Unknown command')
+
         subprocess.run(cmd, shell=True, check=True)
+        os.remove(video_file)
         return {'status': 'Completed', 'output_file': unique_filename}
     except subprocess.CalledProcessError as e:
         return {'status': 'Failed', 'error': str(e)}
