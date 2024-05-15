@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify, send_from_directory, after_this_request
-from tasks import process_video_task
-from utils import download_video, save_uploaded_file
+from tasks import process_video_task, download_video_task
+from celery import chain
+from utils import save_uploaded_file
 import os
 
 app = Flask(__name__)
@@ -13,8 +14,8 @@ def upload_video_url():
     source = request.form['source']
 
     try:
-        video_file = download_video(source)
-        task = process_video_task.delay(video_file)
+        task_chain = chain(download_video_task.s(source), process_video_task.s())
+        task = task_chain.apply_async()
         return jsonify({'task_id': task.id}), 202
     except Exception as e:
         return str(e), 400
@@ -39,15 +40,11 @@ def upload_video_file():
 
 @app.route('/status/<task_id>', methods=['GET'])
 def task_status(task_id):
-    task = process_video_task.AsyncResult(task_id)
+    task = download_video_task.AsyncResult(task_id)
     if task.state == 'PENDING':
         response = {'state': task.state, 'status': 'Pending...'}
     elif task.state == 'SUCCESS':
-        response = {
-            'state': task.state,
-            'status': task.info.get('status', ''),
-            'output_file': task.info.get('output_file', '')
-        }
+        response = {'state': 'SUCCESS', 'status': 'Video processed.', 'output_file': task.info.get('output_file', '')}
     elif task.state != 'FAILURE':
         response = {'state': task.state, 'status': task.info.get('status', '')}
     else:
