@@ -12,9 +12,10 @@ OUTPUT_DIR = '/app/output'
 @app.route('/upload_url', methods=['POST'])
 def upload_video_url():
     source = request.form['source']
+    command = request.form.get('command', 'convert')
 
     try:
-        task_chain = chain(download_video_task.s(source), process_video_task.s())
+        task_chain = chain(download_video_task.s(source), process_video_task.s(command))
         task = task_chain.apply_async()
         return jsonify({'task_id': task.id}), 202
     except Exception as e:
@@ -27,12 +28,14 @@ def upload_video_file():
         return "No file part", 400
 
     file = request.files['file']
+    command = request.form.get('command', 'convert')
+
     if file.filename == '':
         return "No selected file", 400
 
     try:
         video_file = save_uploaded_file(file)
-        task = process_video_task.delay(video_file)
+        task = process_video_task.delay(video_file, command)
         return jsonify({'task_id': task.id}), 202
     except Exception as e:
         return str(e), 400
@@ -40,7 +43,7 @@ def upload_video_file():
 
 @app.route('/status/<task_id>', methods=['GET'])
 def task_status(task_id):
-    task = download_video_task.AsyncResult(task_id)
+    task = process_video_task.AsyncResult(task_id)
     if task.state == 'PENDING':
         response = {'state': task.state, 'status': 'Pending...'}
     elif task.state == 'SUCCESS':
