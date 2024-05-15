@@ -1,9 +1,10 @@
-import time
-
-from celery import Celery
-import subprocess
+from celery import Celery, chain
+import yt_dlp as youtube_dl
 import os
+import re
 import uuid
+import time
+import subprocess
 
 app = Celery('tasks', broker='redis://redis:6379/0', backend='redis://redis:6379/0')
 
@@ -26,6 +27,29 @@ def process_video_task(self, video_file: str) -> dict:
         return {'status': 'Completed', 'output_file': unique_filename}
     except subprocess.CalledProcessError as e:
         return {'status': 'Failed', 'error': str(e)}
+
+
+@app.task(bind=True)
+def download_video_task(self, source: str) -> str:
+    self.update_state(state='PROGRESS', meta={'status': 'Downloading video...'})
+    if not os.path.exists(DOWNLOADS_DIR):
+        os.makedirs(DOWNLOADS_DIR)
+
+    ydl_opts = {'outtmpl': os.path.join(DOWNLOADS_DIR, '%(title)s.%(ext)s')}
+
+    try:
+        with youtube_dl.YoutubeDL(ydl_opts) as ydl:
+            info_dict = ydl.extract_info(source, download=True)
+            video_file = ydl.prepare_filename(info_dict)
+
+            safe_video_file = re.sub(r'[^A-Za-z0-9_\-./]', '_', video_file)
+            safe_video_file_path = os.path.join(DOWNLOADS_DIR, safe_video_file)
+
+            os.rename(video_file, safe_video_file_path)
+
+            return safe_video_file_path
+    except Exception as e:
+        return str(e)
 
 
 @app.task
