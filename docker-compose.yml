@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: video_processing_app
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    ports:
+      - "5000:5000"
+    depends_on:
+      - redis
+    command: python app.py
+    volumes:
+      - ./downloads:/app/downloads
+      - ./output:/app/output
+
+  celery:
+    build: .
+    container_name: celery_worker
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      - redis
+    command: celery -A tasks worker --loglevel=info
+    volumes:
+      - ./downloads:/app/downloads
+      - ./output:/app/output
+
+  celerybeat:
+    build: .
+    container_name: celery_beat
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      - redis
+    command: celery -A tasks beat --loglevel=info
+    volumes:
+      - ./downloads:/app/downloads
+      - ./output:/app/output
+
+  redis:
+    image: redis:alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
