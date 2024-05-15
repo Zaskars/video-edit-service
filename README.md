@@ -3,10 +3,10 @@
 
 Загрузка видео доступна по ссылке на youtube и с локальной машины. В качестве имитации деятельности используются команды: 
 
-convert(ffmpeg -y -i "{video_file}" "{output_file}")
-create_clip(ffmpeg -y -i "{video_file}" -ss 00:00:00 -to 00:00:05 -c copy "{output_file}")
-resize(ffmpeg -y -i "{video_file}" -vf scale=1280:720 "{output_file}")
-compress(ffmpeg -y -i "{video_file}" -vcodec libx264 -crf 28 "{output_file}")
+convert(ffmpeg -y -i "{video_file}" "{output_file}")  
+create_clip(ffmpeg -y -i "{video_file}" -ss 00:00:00 -to 00:00:05 -c copy "{output_file}")  
+resize(ffmpeg -y -i "{video_file}" -vf scale=1280:720 "{output_file}")  
+compress(ffmpeg -y -i "{video_file}" -vcodec libx264 -crf 28 "{output_file}")  
 
 ## Запуск
 
